@@ -106,40 +106,37 @@ class PetFriends:
             result = res.text
         return status, result
 
+
     def add_new_pet_simple(self, auth_key: json, name: str, animal_type: str, age: str) -> json:
-            """Метод отправляет на сервер информацию о добавляемом питомце в более простом формате - без фотографии.
-            Возвращает статус код и данные добавленного питомца в JSON"""
+        """Метод отправляет на сервер информацию о добавляемом питомце в более простом формате - без фотографии.
+                    Возвращает статус код и данные добавленного питомца в JSON"""
+        headers = {'ayth_key': auth_key['key']}
+        data = {'name': name, 'animal_type': animal_type, 'age': age}
 
-            headers = {'auth_key': auth_key['key']}
-            data = {'name': name,
-                    'animal_type': animal_type,
-                    'age': age,
-                    }
+        res = requests.post(self.base_url + 'api/create_pet_simple', headers=headers, data=data)
+        status = res.status_code
+        result = ""
+        try:
+            result = res.json()
+        except json.decoder.JSONDecoderError:
+        return status, result
 
-            res = requests.post(self.base_url + 'api/create_pet_simple', headers=headers, data=data)
-            status = res.status_code
-            result = ""
-            try:
-                result = res.json()
-            except json.decoder.JSONDecodeError:
-                result = res.text
-            return status, result
 
-        def add_photo_to_pet(self, auth_key: json, pet_id: str, pet_photo: str) -> json:
-            """Метод отправляет на сервер фото к добавленному ранее ранее питомцу. Возвращает статус
-            запроса  и данные питомца в JSON"""
+   def add_photo_to_pet(self, auth_key: json, pet_id: str, pet_photo: str) -> json:
+        """Метод отправляет на сервер фото к добавленному ранее ранее питомцу. Возвращает статус
+        запроса  и данные питомца в JSON"""
+        data = MultipartEncoder(
+            fields={
+                'pet_photo': (pet_photo, open(pet_photo, 'rb'), 'image/jpg')
+            })
+        headers = {'auth_key': auth_key['key'], 'Content-Type': data.content_type}
 
-            data = MultipartEncoder(
-                fields={
-                    'pet_photo': (pet_photo, open(pet_photo, 'rb'), 'image/jpeg')
-                })
-            headers = {'auth_key': auth_key['key'], 'Content-Type': data.content_type}
+        res = requests.post(self.base_url + '/api/pets/set_photo/' + pet_id, headers=headers, data=data)
+        status = res.status_code
+        result = ""
 
-            res = requests.post(self.base_url + '/api/pets/set_photo/' + pet_id, headers=headers, data=data)
-            status = res.status_code
-            result = ""
-            try:
-                result = res.json()
-            except json.decoder.JSONDecodeError:
-                result = res.text
-            return status, result
+        try:
+            result = res.json()
+        except json.decoder.JSONDecodeError:
+            result = res.text
+        return status, result
