@@ -1,5 +1,5 @@
 from api import PetFriends
-from settings import valid_email, valid_password, invalid_password, invalid_email, emp_email, emp_password
+from settings import valid_email, valid_password, password, email
 import os
 
 pf = PetFriends()
@@ -92,41 +92,106 @@ def test_successful_update_self_pet_info(name='Мурзик', animal_type='Ко�
 #  10 tests more. 19.7.2
 
 # 1 test
-def test_get_api_key_for_with_wrong_password(email=valid_email, password=invalid_password):
-    """ Проверяем результат теста с правильным email и неправильным паролем. Ключ не должен быть в ответе."""
+def add_pet_simple_with_valid_data(name='Candy_cat', animal_type='cat', age='5'):
+    """Проверяем можно ли добавить питомца в упрощенном формате с корректными данными"""
 
-    # Отправляем запрос и сохраняем полученный ответ с кодом статуса в status, а текст ответа в result
+#     Получаем api key  и сохраняем в переменную auth_key
+    _, auth_key = pf.get_api_key(valid_email, valid_password)
+
+#     Добавляем питомца
+    status, result = pf.add_new_pet_simple(auth_key, name, animal_type, age)
+    assert status == 200
+    assert result['name'] == name
+
+# 2 test
+def test_add_pet_photo_with_valid_data(pet_photo='candy.jpg'):
+    """Проверим, что фото добавляется к конкретному питомцу"""
+
+#     Получаем api key  и сохраняем в переменную auth_key
+    _, auth_key = pf.get_api_key(valid_email, valid_password)
+#     Получаем список моих питомцев
+    _, my_pets = pf.get_list_of_pets(auth_key, 'my_pets')
+
+#     Проверяем есть ли в списке питомцы. Если список пустой,
+#     добавляем питомца и запрашиваем список повторно.
+    if len(my_pets['pets']) == 0:
+        pf.add_new_pet_simple(auth_key, 'Candy_cat simple', 'cat', '5')
+        _, my_pets = pf.get_list_of_pets(auth_key, 'my_pets')
+
+#     Берем ID первого в списке питомца и отправляем запрос на добавление фото.
+    pet_id = my_pets['pets'][0]['id']
+    status, result = pf.add_pet_photo(auth_key, pet_id, pet_photo)
+
+    assert status == 200
+    assert 'pet_photo' in result
+
+# 3 test
+def add_pet_simple_with_invalid_data_symbol_in_age(name='Candy_cat', animal_type='cat', age='*&^%$#@!'):
+    """Проверяем можно ли добавить питомца в упрощенном формате с некорректными данными - символы вместо чисел возраста"""
+
+#     Получаем api key  и сохраняем в переменную auth_key
+    _, auth_key = pf.get_api_key(valid_email, valid_password)
+
+#     Добавляем питомца
+    status, result = pf.add_new_pet_simple(auth_key, name, animal_type, age)
+    assert status == 400
+    assert 'Wrong data' in result
+
+# 4 test
+def test_get_api_key_with_wrong_password(email=valid_email, password=password):
+    """ Проверяем результат теста с правильным email и неправильным паролем.
+    Ключ не должен быть в ответе. Код ответа 403"""
+
+    # Отправляем запрос, сохраняем ответы - status = статус код, result = текст ответа
+    status, result = pf.get_api_key(email, password)
+
+    # Сверяем полученные данные
+    assert status == 403
+    assert 'key' not in result
+
+# 5 test
+def test_get_api_key_with_wrong_data(email=email, password=password):
+    """ Проверяем результат теста с неправильным email и неправильным паролем.
+    Ключ не должен быть в ответе."""
+
+    # Отправляем запрос, сохраняем ответы - status = статус код, result = текст ответа
     status, result = pf.get_api_key(email, password)
 
     # Сверяем полученные данные с нашими ожиданиями
     assert status == 403
     assert 'key' not in result
 
-# 2 test
-def test_get_api_key_with_wrong_email(email=invalid_email, password=invalid_password):
-     """ Проверяем результат теста с неправильным email и правильным паролем. Ключ не должен быть в ответе."""
+# 6 test
+def test_get_api_key_with_wrong_email(email=email, password=valid_password):
+    """ Проверяем что запрос api ключа с неправильным email возвращает
+    статус 403 и не содержит key"""
 
+    # Отправляем запрос, сохраняем ответы - status = статус код, result = текст ответа
     status, result = pf.get_api_key(email, password)
+
+    # Сверяем полученные данные
     assert status == 403
     assert 'key' not in result
 
-# 3 test
-def test_add_pet_long_name(name='Fedor', age='2', pet_photo='images/Fedor.jpg'):
+# 7 test
+def test_add_pet_long_type_name(name='Пушок', age='1', pet_photo='images/rabbit.jpg'):
     """Добавление питомца с названием породы из более 50 букв. Такой питомец не должен быть добавлен"""
 
     animal_type = 'ньюфаундлендротвейлеровчаркадогдолматинецчихуахуача'
     # 51 символ в названии породы
 
-    _, api_key = pf.get_app_key(valid_email, valid_password)
-    status, result = pf.add_new_pets(api_key, name, animal_type, age, pet_photo)
-
+    # получаем auth key
+    _, auth_key = pf.get_api_key(valid_email, valid_password)
+    # добавляем питомца
+    status, result = pf.add_new_pet(auth_key, name, animal_type, age, pet_photo)
+    # получаем список всех animal_type, считаем кол-во символов
     list_animal_type = result['animal_type'].split()
     word_count = len(list_animal_type)
 
     assert status == 200
     assert word_count < 50, f'Добавлен питомец с длинным названием породы - {word_count} символов'
 
-# 4 test
+# 8 test
 def test_get_list_of_pets_with_wrong_auth_key(filter='my_pets'):
     """ Проверяем что запрос списка питомцев с неверным auth_key выдаёт ошибку."""
 
@@ -138,25 +203,12 @@ def test_get_list_of_pets_with_wrong_auth_key(filter='my_pets'):
     assert status == 403
     assert 'Неверный auth_key' in result
 
-# 5 test
-def test_add_new_pet_with_letters_in_age(name='Мистер Ушастик', animal_type='кролик', age='Один',
-                                     pet_photo='rabbit.jpg'):
-    """Провереям что невозможно добавить питомца с буквенным значением возраста"""
+# 9 test
+def test_add_new_pet_with_empty_name_type(name='', animal_type='',
+                                     age='1', pet_photo='cat1.jpg'):
+    """Проверяем что нельзя добавить питомца с пустыми именем и animal_type"""
 
-
-    pet_photo = os.path.join(os.path.dirname(__file__), pet_photo)
-    _, auth_key = pf.get_api_key(valid_email, valid_password)
-    status, result = pf.add_new_pet(auth_key, name, animal_type, age, pet_photo)
-
-    assert status == 400
-    assert result['age'] == age
-
-# 6 test
-def test_add_new_pet_with_invalid_data(name='', animal_type='?)-%;',
-                                     age='Сто', pet_photo='images/cat1.jpg'):
-    """Проверяем что нельзя добавить питомца с некорректными данными"""
-
-    # Получаем полный путь изображения питомца и сохраняем в переменную pet_photo
+    # Получаем полный путь к jpg и сохраняем в переменную pet_photo
     pet_photo = os.path.join(os.path.dirname(__file__), pet_photo)
 
     # Запрашиваем ключ api и сохраняем в переменую auth_key
@@ -165,33 +217,16 @@ def test_add_new_pet_with_invalid_data(name='', animal_type='?)-%;',
     # Добавляем питомца
     status, result = pf.add_new_pet(auth_key, name, animal_type, age, pet_photo)
 
-    # Сверяем полученный ответ с ожидаемым результатом
+    assert status == 200
+    assert 'БАГ - добавлен питомец без имени и породы' in result
+
+# 10 test
+def test_get_api_key_with_empty_email(email=' ', password=valid_password):
+    """ Проверяем что запрос api ключа с пробелом в email возвращает статус 403"""
+
+    # Отправляем запрос и сохраняем полученный ответ с кодом статуса в status, а текст ответа в result
+    status, result = pf.get_api_key(email, password)
+
+    # Сверяем полученные данные с нашими ожиданиями
     assert status == 403
-    assert 'Введены некорректные данные' in result
-
-# 7 test
-def test_unsuccessful_delete_self_pet():
-    """Проверяем возможность удаления питомца с некорректным ID"""
-
-    # Получаем ключ auth_key и запрашиваем список своих питомцев
-    _, auth_key = pf.get_api_key(valid_email, valid_password)
-    _, my_pets = pf.get_list_of_pets(auth_key, "my_pets")
-
-    # Проверяем - если список своих питомцев пустой, то добавляем нового и опять запрашиваем список своих питомцев
-    if len(my_pets['pets']) == 0:
-        pf.add_new_pet(auth_key, "Карамелька", "кошечка", "3", "images/candy.jpg")
-        _, my_pets = pf.get_list_of_pets(auth_key, "my_pets")
-
-    # Берём id питомца, портим и отправляем на удаление
-    pet_id = my_pets['pets'][0]['id']
-    ID = pet_id['id'] += 'yahooo'
-    status, _ = pf.delete_pet(auth_key, ID)
-
-    # Ещё раз запрашиваем список своих питомцев
-    _, my_pets = pf.get_list_of_pets(auth_key, "my_pets")
-
-    # Проверяем что статус ответа равен 403 и питомца удалит ьне удалось
-    assert status == 403
-    assert pet_id in my_pets.values()
-
-# 8 test
+    assert 'key' not in result
